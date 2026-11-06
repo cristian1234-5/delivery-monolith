@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # CAPA 2: BASE DE DATOS ÚNICA (POSTGRESQL)
+  # ==========================================
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: delivery-monolith-db
+    restart: always
+    environment:
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: delivery_password
+      POSTGRES_DB: delivery_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delivery_user -d delivery_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - delivery-network
+
+  # ==========================================
+  # CAPA 1: SERVIDOR MONOLÍTICO MODULAR (APP)
+  # ==========================================
+  delivery-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: delivery-monolith-app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://delivery_user:delivery_password@postgres-db:5432/delivery_db
+      APP_ENV: development
+    volumes:
+      # Montar código fuente local para desarrollo en vivo (Hot-Reload)
+      - ./src:/app/src
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - delivery-network
+
+# ==========================================
+# REDES Y VOLÚMENES PERSISTENTES
+# ==========================================
+networks:
+  delivery-network:
+    driver: bridge
+    name: delivery-network
+
+volumes:
+  postgres_data:
+    driver: local
