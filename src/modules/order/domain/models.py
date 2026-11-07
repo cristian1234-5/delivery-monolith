@@ -1,24 +1,102 @@
-from sqlalchemy import Column, Integer, TIMESTAMP, Numeric, Text, String, Boolean, ForeignKey, func
-from src.core.database import Base
+# modulo order
+''' Entidades puras de dominio
+========================================
+Pedido (raíz del agregado) y DetallePedido, con las reglas del ciclo de vida del pedido.
+'''
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
+from typing import List, Optional
 
-class PedidoModel(Base):
-    __tablename__ = "pedido"
-    pedido_id = Column(Integer, primary_key=True, index=True)
-    fecha_hora = Column(TIMESTAMP, server_default=func.now())
-    sum_total = Column(Numeric(10, 2), nullable=False)
-    notas_cliente = Column(Text)
-    estado = Column(String(30), default="pendiente")
-    tiempo_estimado_min = Column(Integer, default=0)
-    permite_cancelacion = Column(Boolean, default=True)
-    usuario_id = Column(Integer, ForeignKey("usuario.usuario_id"))
-    restaurant_id = Column(Integer, ForeignKey("restaurante.restaurant_id"))
-    repartidor_id = Column(Integer, ForeignKey("repartidor.id_repartidor"), nullable=True)
+from src.modules.order.domain.exceptions import (
+    PedidoInvalidoException,
+    TransicionEstadoInvalidaException,
+    CancelacionNoPermitidaException,
+)
 
-class DetallePedidoModel(Base):
-    __tablename__ = "detalle_pedido"
-    id_detalle_pedido = Column(Integer, primary_key=True, index=True)
-    pedido_id = Column(Integer, ForeignKey("pedido.pedido_id", ondelete="CASCADE"))
-    id_producto = Column(Integer, ForeignKey("producto.id_producto"))
-    cantidad = Column(Integer, nullable=False)
-    precio_unitario = Column(Numeric(10, 2), nullable=False)
-    subtotal = Column(Numeric(10, 2), nullable=False)
+ESTADOS_PEDIDO = ("Pendiente", "En_Preparacion", "En_Camino", "Entregado", "Cancelado")
+
+# Flujo permitido del pedido: estado actual -> estados siguientes válidos
+TRANSICIONES = {
+    "Pendiente": ("En_Preparacion", "Cancelado"),
+    "En_Preparacion": ("En_Camino",),
+    "En_Camino": ("Entregado",),
+    "Entregado": (),
+    "Cancelado": (),
+}
+
+
+@dataclass
+class DetallePedido:
+    producto_id: int
+    cantidad: int
+    precio_unitario: Decimal
+    subtotal: Decimal = Decimal("0.00")
+    detalle_pedido_id: Optional[int] = None
+
+    def __post_init__(self):
+        if self.cantidad <= 0:
+            raise PedidoInvalidoException("La cantidad de cada producto debe ser mayor a 0.")
+        self.precio_unitario = Decimal(str(self.precio_unitario))
+        self.subtotal = (self.precio_unitario * self.cantidad).quantize(Decimal("0.01"))
+
+
+@dataclass
+class Pedido:
+    usuario_id: int
+    restaurant_id: int
+    detalles: List[DetallePedido] = field(default_factory=list)
+    notas_cliente: Optional[str] = None
+    estado: str = "Pendiente"
+    tiempo_estimado_min: int = 30
+    permite_cancelacion: bool = True
+    repartidor_id: Optional[int] = None
+    sum_total: Decimal = Decimal("0.00")
+    fecha_hora: Optional[datetime] = None
+    pedido_id: Optional[int] = None
+
+    # ---------- Reglas de creación ----------
+    def validar_nuevo(self):
+        if not self.detalles:
+            raise PedidoInvalidoException("El pedido debe tener al menos un producto.")
+        self.calcular_total()
+
+    def calcular_total(self) -> Decimal:
+        self.sum_total = sum((d.subtotal for d in self.detalles), Decimal("0.00"))
+        return self.sum_total
+
+    # ---------- Ciclo de vida ----------
+    def cambiar_estado(self, nuevo_estado: str):
+        if nuevo_estado not in ESTADOS_PEDIDO:
+            raise TransicionEstadoInvalidaException(f"Estado inválido. Use: {', '.join(ESTADOS_PEDIDO)}.")
+        if nuevo_estado == "Cancelado":
+            return self.cancelar()
+        if nuevo_estado not in TRANSICIONES[self.estado]:
+            raise TransicionEstadoInvalidaException(
+                f"No se puede pasar de '{self.estado}' a '{nuevo_estado}'."
+            )
+        if nuevo_estado == "En_Camino" and not self.repartidor_id:
+            raise TransicionEstadoInvalidaException("Asigne un repartidor antes de enviar el pedido.")
+
+        self.estado = nuevo_estado
+        # Una vez que el restaurante empieza a preparar, ya no se puede cancelar
+        if nuevo_estado != "Pendiente":
+            self.permite_cancelacion = False
+
+    def cancelar(self):
+        if not self.permite_cancelacion or "Cancelado" not in TRANSICIONES[self.estado]:
+            raise CancelacionNoPermitidaException(
+                f"El pedido en estado '{self.estado}' ya no puede cancelarse."
+            )
+        self.estado = "Cancelado"
+        self.permite_cancelacion = False
+
+    def asignar_repartidor(self, repartidor_id: int):
+        if self.estado in ("Entregado", "Cancelado", "En_Camino"):
+            raise PedidoInvalidoException(
+                f"No se puede asignar repartidor a un pedido en estado '{self.estado}'."
+            )
+        self.repartidor_id = repartidor_id
+
+    def esta_finalizado(self) -> bool:
+        return self.estado in ("Entregado", "Cancelado")

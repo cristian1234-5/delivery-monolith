@@ -1,22 +1,79 @@
-from sqlalchemy import Column, Integer, String, Time, Numeric, Boolean, ForeignKey
-from src.core.database import Base
+# modulo restaurant
+''' Entidades puras de dominio
+========================================
+Restaurante y Producto con sus reglas de negocio, sin depender de SQLAlchemy.
+'''
+from dataclasses import dataclass
+from datetime import time
+from decimal import Decimal
+from typing import Optional
 
-class RestauranteModel(Base):
-    __tablename__ = "restaurante"
-    restaurant_id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(150), nullable=False)
-    direccion = Column(String(255), nullable=False)
-    contacto = Column(String(50))
-    horario_apertura = Column(Time)
-    horario_cierre = Column(Time)
-    estado = Column(String(30), default="abierto")
+from src.modules.restaurant.domain.exceptions import (
+    DatosRestauranteInvalidosException,
+    DatosProductoInvalidosException,
+)
 
-class ProductoModel(Base):
-    __tablename__ = "producto"
-    id_producto = Column(Integer, primary_key=True, index=True)
-    restaurant_id = Column(Integer, ForeignKey("restaurante.restaurant_id", ondelete="CASCADE"))
-    nombre = Column(String(100), nullable=False)
-    descripcion = Column(String)
-    precio = Column(Numeric(10, 2), nullable=False)
-    disponible = Column(Boolean, default=True)
-    categoria = Column(String(50))
+ESTADOS_RESTAURANTE = ("Abierto", "Cerrado")
+
+
+@dataclass
+class Restaurante:
+    nombre: str
+    direccion: str
+    contacto: Optional[str] = None
+    horario_apertura: Optional[time] = None
+    horario_cierre: Optional[time] = None
+    estado: str = "Abierto"
+    restaurant_id: Optional[int] = None
+
+    def __post_init__(self):
+        self.validar()
+
+    def validar(self):
+        if not self.nombre or not self.nombre.strip():
+            raise DatosRestauranteInvalidosException("El nombre del restaurante es obligatorio.")
+        if not self.direccion or not self.direccion.strip():
+            raise DatosRestauranteInvalidosException("La dirección del restaurante es obligatoria.")
+        if self.estado not in ESTADOS_RESTAURANTE:
+            raise DatosRestauranteInvalidosException(f"Estado inválido. Use: {', '.join(ESTADOS_RESTAURANTE)}.")
+        if self.horario_apertura and self.horario_cierre and self.horario_apertura == self.horario_cierre:
+            raise DatosRestauranteInvalidosException("El horario de apertura y cierre no pueden ser iguales.")
+
+    def abrir(self):
+        self.estado = "Abierto"
+
+    def cerrar(self):
+        self.estado = "Cerrado"
+
+    def esta_abierto(self) -> bool:
+        return self.estado == "Abierto"
+
+
+@dataclass
+class Producto:
+    nombre: str
+    precio: Decimal
+    categoria: str
+    restaurant_id: int
+    descripcion: Optional[str] = None
+    disponible: bool = True
+    producto_id: Optional[int] = None
+
+    def __post_init__(self):
+        self.precio = Decimal(str(self.precio))
+        self.validar()
+
+    def validar(self):
+        if not self.nombre or not self.nombre.strip():
+            raise DatosProductoInvalidosException("El nombre del producto es obligatorio.")
+        if not self.categoria or not self.categoria.strip():
+            raise DatosProductoInvalidosException("La categoría del producto es obligatoria.")
+        if self.precio < 0:
+            raise DatosProductoInvalidosException("El precio no puede ser negativo.")
+
+    def cambiar_precio(self, nuevo_precio: Decimal):
+        self.precio = Decimal(str(nuevo_precio))
+        self.validar()
+
+    def puede_venderse(self) -> bool:
+        return self.disponible

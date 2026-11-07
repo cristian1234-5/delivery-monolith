@@ -1,12 +1,47 @@
-from sqlalchemy import Column, Integer, Numeric, String, TIMESTAMP, ForeignKey, func
-from src.core.database import Base
+# modulo payment
+''' Entidades puras de dominio
+========================================
+Pago de un pedido con sus reglas de negocio, sin depender de SQLAlchemy.
+'''
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import Decimal
+from typing import Optional
 
-class PagoModel(Base):
-    __tablename__ = "pago"
-    id_pago = Column(Integer, primary_key=True, index=True)
-    pedido_id = Column(Integer, ForeignKey("pedido.pedido_id", ondelete="CASCADE"))
-    monto = Column(Numeric(10, 2), nullable=False)
-    metodo_pago = Column(String(30), nullable=False) # tarjeta, qr, efectivo
-    estado_pago = Column(String(30), default="completado")
-    transaccion_id = Column(String(100))
-    fecha = Column(TIMESTAMP, server_default=func.now())
+from src.modules.payment.domain.exceptions import PagoInvalidoException
+
+METODOS_PAGO = ("Efectivo", "Tarjeta", "QR")
+ESTADOS_PAGO = ("Pendiente", "Completado", "Fallido")
+
+
+@dataclass
+class Pago:
+    pedido_id: int
+    monto: Decimal
+    metodo_pago: str
+    estado_pago: str = "Pendiente"
+    transaccion_id: Optional[str] = None
+    fecha: date = field(default_factory=date.today)
+    pago_id: Optional[int] = None
+
+    def __post_init__(self):
+        self.monto = Decimal(str(self.monto)).quantize(Decimal("0.01"))
+        if self.monto <= 0:
+            raise PagoInvalidoException("El monto del pago debe ser mayor a 0.")
+        if self.metodo_pago not in METODOS_PAGO:
+            raise PagoInvalidoException(f"Método de pago inválido. Use: {', '.join(METODOS_PAGO)}.")
+        if self.estado_pago not in ESTADOS_PAGO:
+            raise PagoInvalidoException(f"Estado de pago inválido. Use: {', '.join(ESTADOS_PAGO)}.")
+
+    def completar(self, transaccion_id: str):
+        if self.estado_pago == "Completado":
+            raise PagoInvalidoException("El pago ya fue completado.")
+        self.estado_pago = "Completado"
+        self.transaccion_id = transaccion_id
+
+    def marcar_fallido(self, transaccion_id: Optional[str] = None):
+        self.estado_pago = "Fallido"
+        self.transaccion_id = transaccion_id
+
+    def es_contra_entrega(self) -> bool:
+        return self.metodo_pago == "Efectivo"

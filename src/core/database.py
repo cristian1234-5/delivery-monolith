@@ -1,14 +1,21 @@
-
-
-import os
+"""
+Conexión central a la base de datos única del monolito.
+"""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://delivery_user:delivery_password@localhost:5432/delivery_db")
+from src.core.config import DATABASE_URL, DB_SCHEMA
 
-engine = create_engine(DATABASE_URL)
+# init.sql crea las tablas dentro del esquema "delivery".
+# Con search_path, SQLAlchemy trabaja sobre ese esquema en cada conexión.
+connect_args = {}
+if DATABASE_URL.startswith("postgresql"):
+    connect_args = {"options": f"-csearch_path={DB_SCHEMA},public"}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
