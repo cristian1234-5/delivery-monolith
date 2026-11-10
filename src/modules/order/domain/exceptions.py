@@ -10,7 +10,15 @@ class EntidadNoEncontradaException(DomainException):
     """Recurso no encontrado (el router la traduce a HTTP 404)."""
 
 
+class AccesoDenegadoException(DomainException):
+    """El usuario no puede ver o modificar este pedido (HTTP 403)."""
+
+
 class PedidoNoEncontradoException(EntidadNoEncontradaException):
+    pass
+
+
+class DireccionNoValidaException(DomainException):
     pass
 
 

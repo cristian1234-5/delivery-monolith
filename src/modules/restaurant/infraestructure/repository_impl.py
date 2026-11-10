@@ -1,6 +1,7 @@
 # modulo restaurant
 ''' Implementación concreta del repositorio con SQLAlchemy.
 Traduce RestauranteModel/ProductoModel (BD) <-> Restaurante/Producto (dominio).
+Solo hace flush(): el commit lo decide el servicio (una transacción por caso de uso).
 '''
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -46,11 +47,12 @@ class RestaurantRepositorySqlAlchemy(IRestaurantRepository):
         model = self.db.query(RestauranteModel).filter(RestauranteModel.restaurant_id == restaurant_id).first()
         return self._to_domain(model)
 
-    def listar_todos(self, solo_abiertos: bool = False) -> List[Restaurante]:
+    def listar_todos(self, solo_abiertos: bool = False, skip: int = 0, limit: int = 50) -> List[Restaurante]:
         query = self.db.query(RestauranteModel)
         if solo_abiertos:
             query = query.filter(RestauranteModel.estado == "Abierto")
-        return [self._to_domain(m) for m in query.order_by(RestauranteModel.restaurant_id).all()]
+        query = query.order_by(RestauranteModel.restaurant_id).offset(skip).limit(limit)
+        return [self._to_domain(m) for m in query.all()]
 
     def guardar(self, restaurante: Restaurante) -> Restaurante:
         model = None
@@ -69,7 +71,7 @@ class RestaurantRepositorySqlAlchemy(IRestaurantRepository):
         model.horario_cierre = restaurante.horario_cierre
         model.estado = restaurante.estado
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(model)
         return self._to_domain(model)
 
@@ -77,18 +79,21 @@ class RestaurantRepositorySqlAlchemy(IRestaurantRepository):
         model = self.db.query(RestauranteModel).filter(RestauranteModel.restaurant_id == restaurant_id).first()
         if model:
             self.db.delete(model)
-            self.db.commit()
+            self.db.flush()
 
     # ============ Productos ============
     def obtener_producto(self, producto_id: int) -> Optional[Producto]:
         model = self.db.query(ProductoModel).filter(ProductoModel.producto_id == producto_id).first()
         return self._producto_to_domain(model)
 
-    def listar_productos(self, restaurant_id: int, solo_disponibles: bool = False) -> List[Producto]:
+    def listar_productos(
+        self, restaurant_id: int, solo_disponibles: bool = False, skip: int = 0, limit: int = 50
+    ) -> List[Producto]:
         query = self.db.query(ProductoModel).filter(ProductoModel.restaurant_id == restaurant_id)
         if solo_disponibles:
             query = query.filter(ProductoModel.disponible.is_(True))
-        return [self._producto_to_domain(m) for m in query.order_by(ProductoModel.producto_id).all()]
+        query = query.order_by(ProductoModel.producto_id).offset(skip).limit(limit)
+        return [self._producto_to_domain(m) for m in query.all()]
 
     def guardar_producto(self, producto: Producto) -> Producto:
         model = None
@@ -105,7 +110,7 @@ class RestaurantRepositorySqlAlchemy(IRestaurantRepository):
         model.categoria = producto.categoria
         model.restaurant_id = producto.restaurant_id
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(model)
         return self._producto_to_domain(model)
 
@@ -113,4 +118,4 @@ class RestaurantRepositorySqlAlchemy(IRestaurantRepository):
         model = self.db.query(ProductoModel).filter(ProductoModel.producto_id == producto_id).first()
         if model:
             self.db.delete(model)
-            self.db.commit()
+            self.db.flush()

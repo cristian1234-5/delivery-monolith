@@ -48,6 +48,15 @@ class Restaurante:
     def esta_abierto(self) -> bool:
         return self.estado == "Abierto"
 
+    def esta_en_horario(self, hora: time) -> bool:
+        """Regla de negocio: ¿la hora indicada está dentro del horario de atención?"""
+        if not self.horario_apertura or not self.horario_cierre:
+            return True  # Sin horario definido = atiende todo el día
+        if self.horario_apertura < self.horario_cierre:
+            return self.horario_apertura <= hora < self.horario_cierre
+        # Horario que cruza la medianoche (ej. 18:00 a 02:00)
+        return hora >= self.horario_apertura or hora < self.horario_cierre
+
 
 @dataclass
 class Producto:

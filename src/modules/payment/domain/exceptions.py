@@ -10,6 +10,10 @@ class EntidadNoEncontradaException(DomainException):
     """Recurso no encontrado (el router la traduce a HTTP 404)."""
 
 
+class AccesoDenegadoException(DomainException):
+    """El usuario no puede ver o modificar este pago (HTTP 403)."""
+
+
 class PagoNoEncontradoException(EntidadNoEncontradaException):
     pass
 

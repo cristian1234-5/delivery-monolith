@@ -14,7 +14,11 @@ class ITrackingRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_repartidores(self, solo_disponibles: bool = False) -> List[Repartidor]:
+    def obtener_por_usuario(self, usuario_id: int) -> Optional[Repartidor]:
+        pass
+
+    @abstractmethod
+    def listar_repartidores(self, solo_disponibles: bool = False, skip: int = 0, limit: int = 50) -> List[Repartidor]:
         pass
 
     @abstractmethod
@@ -27,7 +31,7 @@ class ITrackingRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_ubicaciones(self, repartidor_id: int) -> List[UbicacionTracking]:
+    def listar_ubicaciones(self, repartidor_id: int, skip: int = 0, limit: int = 50) -> List[UbicacionTracking]:
         pass
 
     @abstractmethod

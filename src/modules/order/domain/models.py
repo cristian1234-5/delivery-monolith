@@ -51,6 +51,7 @@ class Pedido:
     tiempo_estimado_min: int = 30
     permite_cancelacion: bool = True
     repartidor_id: Optional[int] = None
+    direccion_id: Optional[int] = None
     sum_total: Decimal = Decimal("0.00")
     fecha_hora: Optional[datetime] = None
     pedido_id: Optional[int] = None
@@ -59,6 +60,8 @@ class Pedido:
     def validar_nuevo(self):
         if not self.detalles:
             raise PedidoInvalidoException("El pedido debe tener al menos un producto.")
+        if not self.direccion_id:
+            raise PedidoInvalidoException("El pedido debe tener una dirección de entrega.")
         self.calcular_total()
 
     def calcular_total(self) -> Decimal:

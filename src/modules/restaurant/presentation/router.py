@@ -1,10 +1,14 @@
 # modulo restaurant
-''' Endpoints HTTP del módulo restaurant. '''
+''' Endpoints HTTP del módulo restaurant.
+Consultar el catálogo es público; crear/modificar/eliminar es solo para el admin.
+'''
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
+from src.core.pagination import Paginacion
+from src.core.security import UsuarioActual, solo_admin
 from src.modules.restaurant.presentation.schemas import (
     RestauranteCreate,
     RestauranteEstadoUpdate,
@@ -33,7 +37,9 @@ def restaurant_health():
 # ==================== Restaurantes ====================
 
 @router.post("/", response_model=RestauranteResponse, status_code=status.HTTP_201_CREATED)
-def crear_restaurante(data: RestauranteCreate, db: Session = Depends(get_db)):
+def crear_restaurante(
+    data: RestauranteCreate, db: Session = Depends(get_db), _: UsuarioActual = Depends(solo_admin)
+):
     try:
         return RestaurantService(db).crear_restaurante(data)
     except DomainException as e:
@@ -41,8 +47,8 @@ def crear_restaurante(data: RestauranteCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[RestauranteResponse])
-def listar_restaurantes(solo_abiertos: bool = False, db: Session = Depends(get_db)):
-    return RestaurantService(db).listar_restaurantes(solo_abiertos)
+def listar_restaurantes(solo_abiertos: bool = False, pag: Paginacion = Depends(), db: Session = Depends(get_db)):
+    return RestaurantService(db).listar_restaurantes(solo_abiertos, pag.skip, pag.limit)
 
 
 @router.get("/{restaurant_id}", response_model=RestauranteResponse)
@@ -54,7 +60,12 @@ def obtener_restaurante(restaurant_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{restaurant_id}", response_model=RestauranteResponse)
-def actualizar_restaurante(restaurant_id: int, data: RestauranteCreate, db: Session = Depends(get_db)):
+def actualizar_restaurante(
+    restaurant_id: int,
+    data: RestauranteCreate,
+    db: Session = Depends(get_db),
+    _: UsuarioActual = Depends(solo_admin),
+):
     try:
         return RestaurantService(db).actualizar_restaurante(restaurant_id, data)
     except DomainException as e:
@@ -62,7 +73,12 @@ def actualizar_restaurante(restaurant_id: int, data: RestauranteCreate, db: Sess
 
 
 @router.patch("/{restaurant_id}/estado", response_model=RestauranteResponse)
-def cambiar_estado(restaurant_id: int, data: RestauranteEstadoUpdate, db: Session = Depends(get_db)):
+def cambiar_estado(
+    restaurant_id: int,
+    data: RestauranteEstadoUpdate,
+    db: Session = Depends(get_db),
+    _: UsuarioActual = Depends(solo_admin),
+):
     try:
         return RestaurantService(db).cambiar_estado(restaurant_id, data.estado)
     except DomainException as e:
@@ -70,7 +86,9 @@ def cambiar_estado(restaurant_id: int, data: RestauranteEstadoUpdate, db: Sessio
 
 
 @router.delete("/{restaurant_id}", status_code=status.HTTP_204_NO_CONTENT)
-def eliminar_restaurante(restaurant_id: int, db: Session = Depends(get_db)):
+def eliminar_restaurante(
+    restaurant_id: int, db: Session = Depends(get_db), _: UsuarioActual = Depends(solo_admin)
+):
     try:
         RestaurantService(db).eliminar_restaurante(restaurant_id)
     except DomainException as e:
@@ -84,7 +102,12 @@ def eliminar_restaurante(restaurant_id: int, db: Session = Depends(get_db)):
     response_model=ProductoResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def agregar_producto(restaurant_id: int, data: ProductoCreate, db: Session = Depends(get_db)):
+def agregar_producto(
+    restaurant_id: int,
+    data: ProductoCreate,
+    db: Session = Depends(get_db),
+    _: UsuarioActual = Depends(solo_admin),
+):
     try:
         return RestaurantService(db).agregar_producto(restaurant_id, data)
     except DomainException as e:
@@ -92,9 +115,14 @@ def agregar_producto(restaurant_id: int, data: ProductoCreate, db: Session = Dep
 
 
 @router.get("/{restaurant_id}/productos", response_model=List[ProductoResponse])
-def listar_productos(restaurant_id: int, solo_disponibles: bool = False, db: Session = Depends(get_db)):
+def listar_productos(
+    restaurant_id: int,
+    solo_disponibles: bool = False,
+    pag: Paginacion = Depends(),
+    db: Session = Depends(get_db),
+):
     try:
-        return RestaurantService(db).listar_productos(restaurant_id, solo_disponibles)
+        return RestaurantService(db).listar_productos(restaurant_id, solo_disponibles, pag.skip, pag.limit)
     except DomainException as e:
         raise _a_http(e)
 
@@ -108,7 +136,12 @@ def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/productos/{producto_id}", response_model=ProductoResponse)
-def actualizar_producto(producto_id: int, data: ProductoCreate, db: Session = Depends(get_db)):
+def actualizar_producto(
+    producto_id: int,
+    data: ProductoCreate,
+    db: Session = Depends(get_db),
+    _: UsuarioActual = Depends(solo_admin),
+):
     try:
         return RestaurantService(db).actualizar_producto(producto_id, data)
     except DomainException as e:
@@ -116,7 +149,7 @@ def actualizar_producto(producto_id: int, data: ProductoCreate, db: Session = De
 
 
 @router.delete("/productos/{producto_id}", status_code=status.HTTP_204_NO_CONTENT)
-def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
+def eliminar_producto(producto_id: int, db: Session = Depends(get_db), _: UsuarioActual = Depends(solo_admin)):
     try:
         RestaurantService(db).eliminar_producto(producto_id)
     except DomainException as e:

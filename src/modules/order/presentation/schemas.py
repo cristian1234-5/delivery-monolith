@@ -13,8 +13,9 @@ class ItemPedidoCreate(BaseModel):
 
 
 class PedidoCreate(BaseModel):
-    usuario_id: int
+    # El cliente se toma del token: no se envía usuario_id
     restaurant_id: int
+    direccion_id: int = Field(description="Una de sus direcciones (GET /api/v1/auth/me/direcciones)")
     items: List[ItemPedidoCreate] = Field(min_length=1)
     notas_cliente: Optional[str] = None
 
@@ -44,6 +45,7 @@ class PedidoResponse(BaseModel):
     fecha_hora: Optional[datetime] = None
     usuario_id: int
     restaurant_id: int
+    direccion_id: Optional[int] = None
     repartidor_id: Optional[int] = None
     estado: str
     sum_total: float

@@ -28,6 +28,12 @@ class PedidoModel(Base):
         ForeignKey("repartidor.repartidor_id", ondelete="SET NULL"),
         nullable=True
     )
+    # Dirección de entrega (del módulo auth). Si el cliente la borra, el pedido queda sin ella.
+    direccion_id = Column(
+        Integer,
+        ForeignKey("direccion.direccion_id", ondelete="SET NULL"),
+        nullable=True
+    )
 
     # Relaciones ORM
     detalles = relationship(

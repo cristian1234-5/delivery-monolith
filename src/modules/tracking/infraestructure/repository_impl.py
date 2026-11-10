@@ -1,6 +1,7 @@
 # modulo tracking
 ''' Implementación concreta del repositorio con SQLAlchemy.
 Traduce RepartidorModel/UbicacionTrackingModel (BD) <-> Repartidor/UbicacionTracking (dominio).
+Solo hace flush(): el commit lo decide el servicio (una transacción por caso de uso).
 '''
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -43,11 +44,16 @@ class TrackingRepositorySqlAlchemy(ITrackingRepository):
         model = self.db.query(RepartidorModel).filter(RepartidorModel.repartidor_id == repartidor_id).first()
         return self._repartidor_to_domain(model)
 
-    def listar_repartidores(self, solo_disponibles: bool = False) -> List[Repartidor]:
+    def obtener_por_usuario(self, usuario_id: int) -> Optional[Repartidor]:
+        model = self.db.query(RepartidorModel).filter(RepartidorModel.usuario_id == usuario_id).first()
+        return self._repartidor_to_domain(model)
+
+    def listar_repartidores(self, solo_disponibles: bool = False, skip: int = 0, limit: int = 50) -> List[Repartidor]:
         query = self.db.query(RepartidorModel)
         if solo_disponibles:
             query = query.filter(RepartidorModel.disponible.is_(True))
-        return [self._repartidor_to_domain(m) for m in query.order_by(RepartidorModel.repartidor_id).all()]
+        query = query.order_by(RepartidorModel.repartidor_id).offset(skip).limit(limit)
+        return [self._repartidor_to_domain(m) for m in query.all()]
 
     def guardar_repartidor(self, repartidor: Repartidor) -> Repartidor:
         model = None
@@ -64,7 +70,7 @@ class TrackingRepositorySqlAlchemy(ITrackingRepository):
         model.disponible = repartidor.disponible
         model.usuario_id = repartidor.usuario_id
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(model)
         return self._repartidor_to_domain(model)
 
@@ -78,15 +84,17 @@ class TrackingRepositorySqlAlchemy(ITrackingRepository):
             hora=ubicacion.hora,
         )
         self.db.add(model)
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(model)
         return self._ubicacion_to_domain(model)
 
-    def listar_ubicaciones(self, repartidor_id: int) -> List[UbicacionTracking]:
+    def listar_ubicaciones(self, repartidor_id: int, skip: int = 0, limit: int = 50) -> List[UbicacionTracking]:
         query = (
             self.db.query(UbicacionTrackingModel)
             .filter(UbicacionTrackingModel.repartidor_id == repartidor_id)
             .order_by(UbicacionTrackingModel.ubicacion_tracking_id.desc())
+            .offset(skip)
+            .limit(limit)
         )
         return [self._ubicacion_to_domain(m) for m in query.all()]
 

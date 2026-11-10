@@ -17,7 +17,7 @@ class IPaymentRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_todos(self) -> List[Pago]:
+    def listar_todos(self, skip: int = 0, limit: int = 50) -> List[Pago]:
         pass
 
     @abstractmethod

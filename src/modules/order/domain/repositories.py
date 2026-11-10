@@ -13,11 +13,13 @@ class IOrderRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_todos(self, estado: Optional[str] = None) -> List[Pedido]:
+    def listar_todos(
+        self, estado: Optional[str] = None, usuario_id: Optional[int] = None, skip: int = 0, limit: int = 50
+    ) -> List[Pedido]:
         pass
 
     @abstractmethod
-    def listar_por_usuario(self, usuario_id: int) -> List[Pedido]:
+    def listar_por_repartidor(self, repartidor_id: int, skip: int = 0, limit: int = 50) -> List[Pedido]:
         pass
 
     @abstractmethod

@@ -35,8 +35,9 @@ class PaymentRepositorySqlAlchemy(IPaymentRepository):
         model = self.db.query(PagoModel).filter(PagoModel.pedido_id == pedido_id).first()
         return self._to_domain(model)
 
-    def listar_todos(self) -> List[Pago]:
-        return [self._to_domain(m) for m in self.db.query(PagoModel).order_by(PagoModel.pago_id.desc()).all()]
+    def listar_todos(self, skip: int = 0, limit: int = 50) -> List[Pago]:
+        query = self.db.query(PagoModel).order_by(PagoModel.pago_id.desc()).offset(skip).limit(limit)
+        return [self._to_domain(m) for m in query.all()]
 
     def guardar(self, pago: Pago) -> Pago:
         model = None
@@ -52,6 +53,7 @@ class PaymentRepositorySqlAlchemy(IPaymentRepository):
         model.transaccion_id = pago.transaccion_id
         model.fecha = pago.fecha
 
-        self.db.commit()
+        # Solo flush(): el commit lo decide el servicio (una transacción por caso de uso)
+        self.db.flush()
         self.db.refresh(model)
         return self._to_domain(model)

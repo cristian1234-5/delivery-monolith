@@ -14,7 +14,7 @@ class IRestaurantRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_todos(self, solo_abiertos: bool = False) -> List[Restaurante]:
+    def listar_todos(self, solo_abiertos: bool = False, skip: int = 0, limit: int = 50) -> List[Restaurante]:
         pass
 
     @abstractmethod
@@ -31,7 +31,9 @@ class IRestaurantRepository(ABC):
         pass
 
     @abstractmethod
-    def listar_productos(self, restaurant_id: int, solo_disponibles: bool = False) -> List[Producto]:
+    def listar_productos(
+        self, restaurant_id: int, solo_disponibles: bool = False, skip: int = 0, limit: int = 50
+    ) -> List[Producto]:
         pass
 
     @abstractmethod

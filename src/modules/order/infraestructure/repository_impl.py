@@ -1,6 +1,7 @@
 # modulo order
 ''' Implementación concreta del repositorio con SQLAlchemy.
 Traduce PedidoModel/DetallePedidoModel (BD) <-> Pedido/DetallePedido (dominio).
+Solo hace flush(): el commit lo decide el servicio (una transacción por caso de uso).
 '''
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -28,6 +29,7 @@ class OrderRepositorySqlAlchemy(IOrderRepository):
             usuario_id=model.usuario_id,
             restaurant_id=model.restaurant_id,
             repartidor_id=model.repartidor_id,
+            direccion_id=model.direccion_id,
             detalles=[
                 DetallePedido(
                     detalle_pedido_id=d.detalle_pedido_id,
@@ -43,15 +45,26 @@ class OrderRepositorySqlAlchemy(IOrderRepository):
         model = self.db.query(PedidoModel).filter(PedidoModel.pedido_id == pedido_id).first()
         return self._to_domain(model)
 
-    def listar_todos(self, estado: Optional[str] = None) -> List[Pedido]:
+    def listar_todos(
+        self, estado: Optional[str] = None, usuario_id: Optional[int] = None, skip: int = 0, limit: int = 50
+    ) -> List[Pedido]:
         query = self.db.query(PedidoModel)
         if estado:
             query = query.filter(PedidoModel.estado == estado)
-        return [self._to_domain(m) for m in query.order_by(PedidoModel.pedido_id.desc()).all()]
+        if usuario_id:
+            query = query.filter(PedidoModel.usuario_id == usuario_id)
+        query = query.order_by(PedidoModel.pedido_id.desc()).offset(skip).limit(limit)
+        return [self._to_domain(m) for m in query.all()]
 
-    def listar_por_usuario(self, usuario_id: int) -> List[Pedido]:
-        query = self.db.query(PedidoModel).filter(PedidoModel.usuario_id == usuario_id)
-        return [self._to_domain(m) for m in query.order_by(PedidoModel.pedido_id.desc()).all()]
+    def listar_por_repartidor(self, repartidor_id: int, skip: int = 0, limit: int = 50) -> List[Pedido]:
+        query = (
+            self.db.query(PedidoModel)
+            .filter(PedidoModel.repartidor_id == repartidor_id)
+            .order_by(PedidoModel.pedido_id.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return [self._to_domain(m) for m in query.all()]
 
     def guardar(self, pedido: Pedido) -> Pedido:
         model = None
@@ -82,7 +95,8 @@ class OrderRepositorySqlAlchemy(IOrderRepository):
         model.tiempo_estimado_min = pedido.tiempo_estimado_min
         model.permite_cancelacion = pedido.permite_cancelacion
         model.repartidor_id = pedido.repartidor_id
+        model.direccion_id = pedido.direccion_id
 
-        self.db.commit()
+        self.db.flush()
         self.db.refresh(model)
         return self._to_domain(model)
