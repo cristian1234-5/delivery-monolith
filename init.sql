@@ -138,10 +138,15 @@ CREATE TABLE IF NOT EXISTS pedido (
     usuario_id INT NOT NULL,
     restaurant_id INT NOT NULL,
     repartidor_id INT DEFAULT NULL,
+    direccion_id INT DEFAULT NULL,  -- Dirección de entrega del cliente
     CONSTRAINT fk_pedido_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(usuario_id),
     CONSTRAINT fk_pedido_restaurante FOREIGN KEY (restaurant_id) REFERENCES restaurante(restaurant_id),
-    CONSTRAINT fk_pedido_repartidor FOREIGN KEY (repartidor_id) REFERENCES repartidor(repartidor_id) ON DELETE SET NULL
+    CONSTRAINT fk_pedido_repartidor FOREIGN KEY (repartidor_id) REFERENCES repartidor(repartidor_id) ON DELETE SET NULL,
+    CONSTRAINT fk_pedido_direccion FOREIGN KEY (direccion_id) REFERENCES direccion(direccion_id) ON DELETE SET NULL
 );
+
+-- Si la base ya existía sin esta columna (volumen de Docker anterior)
+ALTER TABLE pedido ADD COLUMN IF NOT EXISTS direccion_id INT DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS detalle_pedido (
     detalle_pedido_id SERIAL PRIMARY KEY,

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Entornos virtuales
 venv/
 env/
@@ -19,3 +20,11 @@ postgres_data/
 .vscode/
 .idea/
 *.log
+=======
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+*.db
+>>>>>>> f0e3673597fade5ddff7a343f2242a88a00b6c1f
